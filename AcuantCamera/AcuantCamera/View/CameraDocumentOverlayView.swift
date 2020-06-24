@@ -10,13 +10,13 @@ import Foundation
 import UIKit
 
 public class CameraDocumentOverlayView : CAShapeLayer{
-    
+
     public var alwaysHideBox: Bool = false
-    
+
     private var isAnimating = false
     private var isShown = false
-    
-    init(options: AcuantCameraOptions){
+
+    public init(options: AcuantCameraOptions){
         self.alwaysHideBox = !(options.allowBox)
         super.init()
         self.fillColor = nil
@@ -29,11 +29,11 @@ public class CameraDocumentOverlayView : CAShapeLayer{
     override init(layer: Any) {
         super.init(layer: layer)
     }
-    
+
     required init?(coder aDecoder: NSCoder) {
         super.init(coder: aDecoder)
     }
-    
+
     public func showBorder(color: CGColor?){
         if(!self.alwaysHideBox){
             self.strokeColor = color
@@ -41,7 +41,7 @@ public class CameraDocumentOverlayView : CAShapeLayer{
             self.opacity = 0.45
         }
     }
-    
+
     public func hideBorder(){
         self.opacity = 0
         self.isShown = false

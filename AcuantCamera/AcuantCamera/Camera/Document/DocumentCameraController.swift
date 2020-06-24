@@ -13,11 +13,11 @@ import AcuantImagePreparation
 import AcuantCommon
 
 @objcMembers public class DocumentCameraController : UIViewController, DocumentCaptureDelegate , FrameAnalysisDelegate {
-    
+
     @objc public enum CameraState : Int {
         case Align = 0, MoveCloser = 1, Steady = 2, Hold = 3, Capture = 4
     }
-    
+
     var captureWaitTime = 2
     var captureIntervalInSeconds = 0.9
     var captureSession: DocumentCaptureSession!
@@ -30,17 +30,17 @@ import AcuantCommon
     var hideNavBar : Bool = true
     var autoCapture = true
     var backButton : UIButton!
-    
+
     private let context = CIContext()
     private var currentPoints : [CGPoint]? = nil
     private var options : AcuantCameraOptions? = nil
     weak private var cameraCaptureDelegate : CameraCaptureDelegate? = nil
-    
+
     private var currentState = FrameResult.NO_DOCUMENT
     private var captureTimerState = 0.0
     private var isHoldSteady = false
     private var holdSteadyTimer: Timer!
-    
+
     private let captureTime = 1
     private let documentMovementThreshold = 45
     private let previewBoundsThreshold: CGFloat = 25
@@ -48,7 +48,7 @@ import AcuantCommon
     private var currentStateCount = 0
     private var nextState = FrameResult.NO_DOCUMENT
     private var isNavigationHidden = false
-    
+
     public class func getCameraController(delegate:CameraCaptureDelegate, cameraOptions: AcuantCameraOptions)->DocumentCameraController{
         let c = DocumentCameraController()
         c.cameraCaptureDelegate = delegate
@@ -68,34 +68,34 @@ import AcuantCommon
         UIDevice.current.beginGeneratingDeviceOrientationNotifications()
         NotificationCenter.default.addObserver(self, selector: #selector(self.deviceDidRotate(notification:)), name: UIDevice.orientationDidChangeNotification, object: nil)
         self.lastDeviceOrientation = UIDevice.current.orientation
-        
+
         let gestureRecognizer = UITapGestureRecognizer(target: self, action: #selector(touchAction(_:)))
         self.view.addGestureRecognizer(gestureRecognizer)
     }
-    
+
     @objc internal func touchAction(_ sender:UITapGestureRecognizer){
         if(autoCapture == false){
             self.captureSession.enableCapture()
         }
     }
-    
+
     override public func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
     }
-    
+
     override public func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         startCameraView()
 
     }
-    
+
     override public var prefersStatusBarHidden: Bool {
         return true
     }
-    
+
     override public func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
-        
+
         if (captureSession?.isRunning == true) {
             captureSession?.stopRunning()
         }
@@ -112,7 +112,7 @@ import AcuantCommon
         super.didReceiveMemoryWarning()
         // TODO: Dispose of any resources that can be recreated.
     }
-    
+
     internal func startCameraView() {
         let captureDevice: AVCaptureDevice = AVCaptureDevice.default(.builtInWideAngleCamera, for: AVMediaType.video, position: .back)!
         self.captureSession = DocumentCaptureSession.getDocumentCaptureSession(delegate: self, frameDelegate: self,autoCapture:autoCapture, captureDevice: captureDevice)
@@ -121,7 +121,7 @@ import AcuantCommon
         self.videoPreviewLayer.videoGravity = AVLayerVideoGravity.resizeAspectFill
         self.videoPreviewLayer.frame = self.view.layer.bounds
         self.videoPreviewLayer.connection?.videoOrientation = .portrait
-        
+
         if(self.messageLayer == nil) {
             self.messageLayer = AcuantCameraTextView(autoCapture: autoCapture)
         }
@@ -133,24 +133,24 @@ import AcuantCommon
         if(shapeLayer == nil) {
             shapeLayer = CameraDocumentOverlayView(options: options!)
         }
-                
+
         self.videoPreviewLayer.addSublayer(self.shapeLayer)
         self.videoPreviewLayer.addSublayer(self.messageLayer)
         self.videoPreviewLayer.addSublayer(self.cornerLayer)
         self.view.layer.addSublayer(self.videoPreviewLayer)
-        
+
         if(self.options!.showBackButton){
             addNavigationBackButton()
         }
     }
-    
+
     public func documentCaptured(image: UIImage, barcodeString: String?) {
         let result = Image()
         result.image = rotateImage(image: image)
         self.navigationController?.popViewController(animated: true)
         self.cameraCaptureDelegate?.setCapturedImage(image: result, barcodeString: barcodeString)
     }
-    
+
     public func rotateImage(image: UIImage) -> UIImage{
         if(self.lastDeviceOrientation == UIDeviceOrientation.landscapeRight){
             return image.rotate(radians: .pi/2)!
@@ -160,7 +160,7 @@ import AcuantCommon
         }
     }
 
-    private func setLookFromState(state: DocumentCameraController.CameraState) {
+    public func setLookFromState(state: DocumentCameraController.CameraState) {
         switch state {
         case DocumentCameraController.CameraState.MoveCloser:
             self.messageLayer.setDefaultSettings(frame: self.view.frame)
@@ -191,14 +191,14 @@ import AcuantCommon
             break;
         }
     }
-    
+
     private func cancelCapture(state: CameraState, message: String){
         self.setLookFromState(state: state)
         self.messageLayer.string = message
         self.triggerHoldSteady()
         self.captureTimerState = 0.0
     }
-    
+
     private func triggerHoldSteady(){
         if(!self.isHoldSteady){
             self.isHoldSteady = true
@@ -210,18 +210,18 @@ import AcuantCommon
                 repeats: false)
         }
     }
-    
+
     internal func delayTimer(_ timer: Timer){
         isHoldSteady = false
         holdSteadyTimer.invalidate()
 
     }
-   
+
     private func getInterval(time: Double, duration: Double) -> Int{
         let current = CFAbsoluteTimeGetCurrent() - time
         return Int(current/duration)
     }
-    
+
     private func handleInterval(){
         if(captureTimerState == 0){
             self.messageLayer.string = NSLocalizedString("\(self.captureWaitTime)...", comment: "")
@@ -229,7 +229,7 @@ import AcuantCommon
         }
         else{
             let interval = getInterval(time: self.captureTimerState, duration: self.captureIntervalInSeconds)
-            
+
             if(interval >= self.captureTime){
                 self.captureSession.enableCapture()
             }
@@ -238,11 +238,11 @@ import AcuantCommon
             }
         }
     }
-    
+
     private func triggerCapture(){
         self.handleInterval()
     }
-    
+
     public func isDocumentMoved(newPoints: Array<CGPoint>) -> Bool{
         if(self.currentPoints != nil && newPoints.count == self.currentPoints!.count){
             for i in 0..<self.currentPoints!.count {
@@ -253,8 +253,8 @@ import AcuantCommon
         }
         return false
     }
-    
-    
+
+
     private func transitionState(state: CameraState, localString: String? = nil){
         if(localString != nil){
             self.cancelCapture(state: state, message: NSLocalizedString(localString!, comment: ""))
@@ -263,11 +263,11 @@ import AcuantCommon
             self.setLookFromState(state: state)
         }
     }
-    
+
     func isInRange(point: CGPoint) -> Bool{
         return (point.x >= -previewBoundsThreshold && point.x <= self.videoPreviewLayer.frame.width + previewBoundsThreshold) && (point.y >= -previewBoundsThreshold && point.y <= self.videoPreviewLayer.frame.height + previewBoundsThreshold)
     }
-    
+
     func isOutsideView(points: Array<CGPoint>?) -> Bool {
         if(points != nil && points?.count == 4 && autoCapture){
             let scaledPoints = scalePoints(points: points!)
@@ -279,19 +279,19 @@ import AcuantCommon
         }
         return false
     }
-    
+
     public func onFrameAvailable(frameResult: FrameResult, points: Array<CGPoint>?) {
         if(self.videoPreviewLayer == nil || self.messageLayer == nil || self.captured){
             return
         }
-        
+
         if(isOutsideView(points: points)){
             self.currentState = FrameResult.DOCUMENT_NOT_IN_FRAME
         }
         else{
             self.currentState = frameResult
         }
-        
+
         switch(self.currentState){
             case FrameResult.NO_DOCUMENT:
                 self.transitionState(state: CameraState.Align, localString: "acuant_camera_align")
@@ -332,7 +332,7 @@ import AcuantCommon
             self.videoPreviewLayer.layerPointConverted(fromCaptureDevicePoint: points[3])
         ]
     }
-    
+
     private func setPath(points: Array<CGPoint>){
         let openSquarePath = UIBezierPath()
 
@@ -341,11 +341,11 @@ import AcuantCommon
         openSquarePath.addLine(to: points[2])
         openSquarePath.addLine(to: points[3])
         openSquarePath.addLine(to: points[0])
-        
+
         self.shapeLayer.path = openSquarePath.cgPath
         self.cornerLayer.setCorners(point1: points[0], point2: points[1], point3: points[2], point4: points[3])
     }
-    
+
     public func readyToCapture(){
         DispatchQueue.main.async {
             if(self.messageLayer != nil){
@@ -362,7 +362,7 @@ import AcuantCommon
             }
         }
     }
-    
+
     @objc internal func deviceDidRotate(notification:NSNotification)
     {
         let currentOrientation = UIDevice.current.orientation
@@ -377,33 +377,32 @@ import AcuantCommon
             }
         }
     }
-    
-    
+
+
     internal func rotateLayer(angle: Double,layer:CALayer){
         layer.transform = CATransform3DMakeRotation(CGFloat(angle / 180.0 * .pi), 0.0, 0.0, 1.0)
     }
-    
+
     internal func addNavigationBackButton(){
         backButton = UIButton(frame: CGRect(x: 0, y: UIScreen.main.heightOfSafeArea()*0.065, width: 90, height: 40))
-        
-        
+
+
         var attribs : [NSAttributedString.Key : Any?] = [:]
         attribs[NSAttributedString.Key.font]=UIFont.systemFont(ofSize: 18)
         attribs[NSAttributedString.Key.foregroundColor]=UIColor.white
         attribs[NSAttributedString.Key.baselineOffset]=4
-        
+
         let str = NSMutableAttributedString.init(string: "BACK", attributes: attribs as [NSAttributedString.Key : Any])
         backButton.setAttributedTitle(str, for: .normal)
         backButton.addTarget(self, action: #selector(backTapped(_:)), for: .touchUpInside)
         backButton.isOpaque=true
         backButton.imageView?.contentMode = .scaleAspectFit
-        
+
         self.view.addSubview(backButton)
     }
-    
+
     @objc internal func backTapped(_ sender: Any){
         self.cameraCaptureDelegate?.setCapturedImage(image: Image(), barcodeString: nil)
         self.navigationController?.popViewController(animated: true)
     }
 }
-
